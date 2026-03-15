@@ -1,7 +1,7 @@
 # CLI-ONESHOT — 单点快速 CLI 生成
 
 > 给一个 URL + 一句话描述，4 步生成一个 CLI 命令。
-> 完整探索式开发请看 [CLI-CREATOR.md](./CLI-CREATOR.md)。
+> 完整探索式开发请看 [CLI-EXPLORER.md](./CLI-EXPLORER.md)。
 
 ---
 
@@ -213,4 +213,4 @@ opencli mysite mycommand --limit 3 -v      # 实际运行
 
 ## 就这样，没了
 
-写完文件 → build → run → 提交。有问题再看 [CLI-CREATOR.md](./CLI-CREATOR.md)。
+写完文件 → build → run → 提交。有问题再看 [CLI-EXPLORER.md](./CLI-EXPLORER.md)。

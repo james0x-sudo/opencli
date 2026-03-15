@@ -159,8 +159,9 @@ opencli bilibili hot -v         # Verbose: show pipeline debug steps
 
 If you are an AI assistant tasked with creating a new command adapter for `opencli`, please follow the AI Agent workflow below:
 
-> **Information for AI:** 
-> Before writing any adapter code, you **must** read [CLI-CREATOR.md](./CLI-CREATOR.md). It contains the complete browser exploration workflow, the 5-tier authentication strategy decision tree, and debugging guide. Skipping this will lead to preventable errors.
+> **Quick mode**: To generate a single command for a specific page URL, see [CLI-ONESHOT.md](./CLI-ONESHOT.md) — just a URL + one-line goal, 4 steps done.
+
+> **Full mode**: Before writing any adapter code, read [CLI-EXPLORER.md](./CLI-EXPLORER.md). It contains the complete browser exploration workflow, the 5-tier authentication strategy decision tree, and debugging guide.
 
 ```bash
 # 1. Deep Explore — discover APIs, infer capabilities, detect framework
