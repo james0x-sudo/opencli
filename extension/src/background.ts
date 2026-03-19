@@ -88,8 +88,27 @@ function scheduleReconnect(): void {
 // ─── Automation window isolation ─────────────────────────────────────
 // All opencli operations happen in a dedicated Chrome window so the
 // user's active browsing session is never touched.
+// The window auto-closes after 30s of idle (no commands).
 
 let automationWindowId: number | null = null;
+let windowIdleTimer: ReturnType<typeof setTimeout> | null = null;
+const WINDOW_IDLE_TIMEOUT = 30000; // 30s
+
+function resetWindowIdleTimer(): void {
+  if (windowIdleTimer) clearTimeout(windowIdleTimer);
+  windowIdleTimer = setTimeout(async () => {
+    if (automationWindowId !== null) {
+      try {
+        await chrome.windows.remove(automationWindowId);
+        console.log(`[opencli] Automation window ${automationWindowId} closed (idle timeout)`);
+      } catch {
+        // Already gone
+      }
+      automationWindowId = null;
+    }
+    windowIdleTimer = null;
+  }, WINDOW_IDLE_TIMEOUT);
+}
 
 /** Get or create the dedicated automation window. */
 async function getAutomationWindow(): Promise<number> {
@@ -122,6 +141,7 @@ chrome.windows.onRemoved.addListener((windowId) => {
   if (windowId === automationWindowId) {
     console.log('[opencli] Automation window closed');
     automationWindowId = null;
+    if (windowIdleTimer) { clearTimeout(windowIdleTimer); windowIdleTimer = null; }
   }
 });
 
@@ -153,6 +173,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // ─── Command dispatcher ─────────────────────────────────────────────
 
 async function handleCommand(cmd: Command): Promise<Result> {
+  // Reset idle timer on every command (window stays alive while active)
+  resetWindowIdleTimer();
   try {
     switch (cmd.action) {
       case 'exec':

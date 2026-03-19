@@ -169,6 +169,21 @@ function scheduleReconnect() {
 	}, delay);
 }
 var automationWindowId = null;
+var windowIdleTimer = null;
+var WINDOW_IDLE_TIMEOUT = 3e4;
+function resetWindowIdleTimer() {
+	if (windowIdleTimer) clearTimeout(windowIdleTimer);
+	windowIdleTimer = setTimeout(async () => {
+		if (automationWindowId !== null) {
+			try {
+				await chrome.windows.remove(automationWindowId);
+				console.log(`[opencli] Automation window ${automationWindowId} closed (idle timeout)`);
+			} catch {}
+			automationWindowId = null;
+		}
+		windowIdleTimer = null;
+	}, WINDOW_IDLE_TIMEOUT);
+}
 /** Get or create the dedicated automation window. */
 async function getAutomationWindow() {
 	if (automationWindowId !== null) try {
@@ -191,6 +206,10 @@ chrome.windows.onRemoved.addListener((windowId) => {
 	if (windowId === automationWindowId) {
 		console.log("[opencli] Automation window closed");
 		automationWindowId = null;
+		if (windowIdleTimer) {
+			clearTimeout(windowIdleTimer);
+			windowIdleTimer = null;
+		}
 	}
 });
 var initialized = false;
@@ -212,6 +231,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 	if (alarm.name === "keepalive") connect();
 });
 async function handleCommand(cmd) {
+	resetWindowIdleTimer();
 	try {
 		switch (cmd.action) {
 			case "exec": return await handleExec(cmd);
