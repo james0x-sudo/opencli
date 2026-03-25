@@ -4,16 +4,17 @@ import { executeCommand } from './execution.js';
 import { getRegistry, cli, Strategy } from './registry.js';
 import { clearAllHooks, onAfterExecute } from './hooks.js';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 
 describe('discoverClis', () => {
   it('handles non-existent directories gracefully', async () => {
     // Should not throw for missing directories
-    await expect(discoverClis('/tmp/nonexistent-opencli-test-dir')).resolves.not.toThrow();
+    await expect(discoverClis(path.join(os.tmpdir(), 'nonexistent-opencli-test-dir'))).resolves.not.toThrow();
   });
 
   it('imports only CLI command modules during filesystem discovery', async () => {
-    const tempRoot = await fs.promises.mkdtemp(path.join('/tmp', 'opencli-discovery-'));
+    const tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'opencli-discovery-'));
     const siteDir = path.join(tempRoot, 'temp-site');
     const helperPath = path.join(siteDir, 'helper.ts');
     const commandPath = path.join(siteDir, 'hello.ts');
@@ -48,7 +49,7 @@ cli({
   });
 
   it('falls back to filesystem discovery when the manifest is invalid', async () => {
-    const tempBuildRoot = await fs.promises.mkdtemp(path.join('/tmp', 'opencli-manifest-fallback-'));
+    const tempBuildRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'opencli-manifest-fallback-'));
     const distDir = path.join(tempBuildRoot, 'dist');
     const siteDir = path.join(distDir, 'fallback-site');
     const commandPath = path.join(siteDir, 'hello.ts');

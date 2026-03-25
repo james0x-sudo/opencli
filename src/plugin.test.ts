@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { PLUGINS_DIR } from './discovery.js';
 import type { LockEntry } from './plugin.js';
@@ -177,7 +178,7 @@ describe('getCommitHash', () => {
   });
 
   it('returns undefined for non-git directory', () => {
-    expect(_getCommitHash('/tmp')).toBeUndefined();
+    expect(_getCommitHash(os.tmpdir())).toBeUndefined();
   });
 });
 
@@ -284,7 +285,7 @@ vi.mock('node:child_process', () => {
   return {
     execFileSync: vi.fn((_cmd, args, opts) => {
       if (Array.isArray(args) && args[0] === 'rev-parse' && args[1] === 'HEAD') {
-        if (opts?.cwd === '/tmp') {
+        if (opts?.cwd === os.tmpdir()) {
           throw new Error('not a git repository');
         }
         return '1234567890abcdef1234567890abcdef12345678\n';
