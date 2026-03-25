@@ -16,7 +16,11 @@ concurrency:
 jobs:
   # ── Fast gate: typecheck + build ──
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v6
 
@@ -36,10 +40,11 @@ jobs:
 
   # ── Unit tests (vitest shard) ──
   unit-test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node-version: ['20', '22']
         shard: [1, 2]
     steps:
@@ -57,7 +62,11 @@ jobs:
         run: npm test -- --reporter=verbose --shard=${{ matrix.shard }}/2
 
   adapter-test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     needs: build
     steps:
       - uses: actions/checkout@v6
