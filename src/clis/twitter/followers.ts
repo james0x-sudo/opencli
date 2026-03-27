@@ -58,7 +58,7 @@ cli({
     if (!clicked) {
         throw new SelectorError('Twitter followers link', 'Twitter may have changed the layout.');
     }
-    await page.wait(5);
+    await page.waitForCapture(5);
 
     // 4. Scroll to trigger pagination API calls
     await page.autoScroll({ times: Math.ceil(kwargs.limit / 20), delayMs: 2000 });
