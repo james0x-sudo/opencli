@@ -70,6 +70,7 @@ describe('parseSource', () => {
   });
 
   it('parses file:// local plugin directories', () => {
+    // Use a platform-appropriate absolute path to build a valid file:// URL
     const localDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opencli-local-plugin-'));
     const result = _parseSource(`file://${localDir}`);
     expect(result).toEqual({
@@ -81,6 +82,7 @@ describe('parseSource', () => {
   });
 
   it('parses plain local plugin directories', () => {
+    // Use a platform-appropriate absolute path
     const localDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opencli-local-plugin-'));
     const result = _parseSource(localDir);
     expect(result).toEqual({
