@@ -115,6 +115,34 @@ function moveDir(src: string, dest: string, fsOps: MoveDirFsOps = fs): void {
   }
 }
 
+type PromoteDirFsOps = MoveDirFsOps & Pick<typeof fs, 'existsSync' | 'mkdirSync'>;
+
+function createPromoteTempDir(dest: string): string {
+  const suffix = `${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return path.join(path.dirname(dest), `.${path.basename(dest)}.tmp-${suffix}`);
+}
+
+/**
+ * Promote a prepared staging directory into its final location.
+ * The final path is only exposed after the directory has been fully prepared.
+ */
+function promoteDir(stagingDir: string, dest: string, fsOps: PromoteDirFsOps = fs): void {
+  if (fsOps.existsSync(dest)) {
+    throw new Error(`Destination already exists: ${dest}`);
+  }
+
+  fsOps.mkdirSync(path.dirname(dest), { recursive: true });
+  const tempDest = createPromoteTempDir(dest);
+
+  try {
+    moveDir(stagingDir, tempDest, fsOps);
+    fsOps.renameSync(tempDest, dest);
+  } catch (err) {
+    try { fsOps.rmSync(tempDest, { recursive: true, force: true }); } catch {}
+    throw err;
+  }
+}
+
 // ── Validation helpers ──────────────────────────────────────────────────────
 
 export interface ValidationResult {
@@ -321,10 +349,8 @@ function installSinglePlugin(
     throw new Error(`Invalid plugin structure:\n- ${validation.errors.join('\n- ')}`);
   }
 
-  fs.mkdirSync(PLUGINS_DIR, { recursive: true });
-  moveDir(cloneDir, targetDir);
-
-  postInstallLifecycle(targetDir);
+  postInstallLifecycle(cloneDir);
+  promoteDir(cloneDir, targetDir);
 
   const commitHash = getCommitHash(targetDir);
   if (commitHash) {
@@ -430,14 +456,15 @@ function installMonorepo(
 ): string[] {
   const monoreposDir = getMonoreposDir();
   const repoDir = path.join(monoreposDir, repoName);
+  const repoAlreadyInstalled = fs.existsSync(repoDir);
+  const repoRoot = repoAlreadyInstalled ? repoDir : cloneDir;
+  const effectiveManifest = repoAlreadyInstalled ? readPluginManifest(repoDir) : manifest;
 
-  // Move clone to permanent monorepos location (if not already there)
-  if (!fs.existsSync(repoDir)) {
-    fs.mkdirSync(monoreposDir, { recursive: true });
-    moveDir(cloneDir, repoDir);
+  if (!effectiveManifest || !isMonorepo(effectiveManifest)) {
+    throw new Error(`Monorepo manifest missing or invalid at ${repoRoot}`);
   }
 
-  let pluginsToInstall = getEnabledPlugins(manifest);
+  let pluginsToInstall = getEnabledPlugins(effectiveManifest);
 
   // If a specific sub-plugin was requested, filter to just that one
   if (subPlugin) {
@@ -449,15 +476,14 @@ function installMonorepo(
         throw new Error(`Sub-plugin "${subPlugin}" is disabled in the manifest.`);
       }
       throw new Error(
-        `Sub-plugin "${subPlugin}" not found in monorepo. Available: ${Object.keys(manifest.plugins ?? {}).join(', ')}`
+        `Sub-plugin "${subPlugin}" not found in monorepo. Available: ${Object.keys(effectiveManifest.plugins ?? {}).join(', ')}`
       );
     }
   }
 
   const installedNames: string[] = [];
   const lock = readLockFile();
-  const commitHash = getCommitHash(repoDir);
-  const eligiblePlugins: Array<{ name: string; entry: typeof pluginsToInstall[number]['entry']; subDir: string }> = [];
+  const eligiblePlugins: Array<{ name: string; entry: typeof pluginsToInstall[number]['entry'] }> = [];
 
   fs.mkdirSync(PLUGINS_DIR, { recursive: true });
 
@@ -468,7 +494,7 @@ function installMonorepo(
       continue;
     }
 
-    const subDir = path.join(repoDir, entry.path);
+    const subDir = path.join(repoRoot, entry.path);
     if (!fs.existsSync(subDir)) {
       log.warn(`Skipping "${name}": path "${entry.path}" not found in repo.`);
       continue;
@@ -486,15 +512,26 @@ function installMonorepo(
       continue;
     }
 
-    eligiblePlugins.push({ name, entry, subDir });
+    eligiblePlugins.push({ name, entry });
   }
 
-  if (eligiblePlugins.length > 0) {
-    postInstallMonorepoLifecycle(repoDir, eligiblePlugins.map((p) => p.subDir));
+  if (eligiblePlugins.length === 0) {
+    return installedNames;
   }
 
-  for (const { name, entry, subDir } of eligiblePlugins) {
+  if (repoAlreadyInstalled) {
+    postInstallMonorepoLifecycle(repoDir, eligiblePlugins.map((p) => path.join(repoDir, p.entry.path)));
+  } else {
+    postInstallMonorepoLifecycle(cloneDir, eligiblePlugins.map((p) => path.join(cloneDir, p.entry.path)));
+    fs.mkdirSync(monoreposDir, { recursive: true });
+    promoteDir(cloneDir, repoDir);
+  }
+
+  const commitHash = getCommitHash(repoDir);
+
+  for (const { name, entry } of eligiblePlugins) {
     const linkPath = path.join(PLUGINS_DIR, name);
+    const subDir = path.join(repoDir, entry.path);
 
     // Create symlink (junction on Windows)
     const linkType = isWindows ? 'junction' : 'dir';
@@ -1027,6 +1064,7 @@ export {
   installLocalPlugin as _installLocalPlugin,
   isLocalPluginSource as _isLocalPluginSource,
   moveDir as _moveDir,
+  promoteDir as _promoteDir,
   resolveStoredPluginSource as _resolveStoredPluginSource,
   toLocalPluginSource as _toLocalPluginSource,
 };
